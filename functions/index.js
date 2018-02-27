@@ -51,8 +51,8 @@ exports.tripRequest = functions.https.onRequest((req, res) => {
     });
 //to add a push token to a user account via user
 exports.addPushToken = functions.https.onRequest((req, res) => {
-  var user_id  = req.query.uid.toString(); //user id of user
-  var token = req.query.token.toString(); //new token of user
+  var user_id  = req.body.uid.toString(); //user id of user
+  var token = req.body.token.toString(); //new token of user
   console.log('adding token ' + token + ' to user ' + user_id);
 
   //check to make sure token doesn't already exist
