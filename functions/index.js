@@ -1,3 +1,4 @@
+const https = require('https');
 const functions = require('firebase-functions');
 
 const admin = require('firebase-admin');
@@ -49,3 +50,47 @@ exports.tripRequest = functions.https.onRequest((req, res) => {
               });
       });
     });
+
+const BONSAI_URL = 'https://explrelasticsearch.herokuapp.com'
+
+exports.updateElasticSearch = functions.database.ref('/pois/{place_id}/').onWrite((event) => {
+  // Grab the current value of what was written to the Realtime Database.
+  const snapshot = event.data
+  var data = []
+  data.push({
+    update: {
+      _index: 'explr',
+      _type: 'places',
+      _id: snapshot.val().id
+    }
+  })
+  data.push({
+    doc: {
+      name: snapshot.val().name,
+      id: snapshot.val().id
+    },
+    upsert: {
+      name: snapshot.val().name,
+      id: snapshot.val().id
+    }
+  })
+  console.log('data', data)
+
+  https.get(`${BONSAI_URL}/update_places?data=${JSON.stringify(data)}`, (resp) => {
+    let data = ''
+   
+    // A chunk of data has been recieved.
+    resp.on('data', (chunk) => {
+      data += chunk
+    })
+   
+    // The whole response has been received. Print out the result.
+    resp.on('end', () => {
+      console.log(JSON.parse(data).explanation)
+    })
+   
+  }).on("error", (err) => {
+    console.log("Error: " + err.message)
+  })
+  return data
+})
