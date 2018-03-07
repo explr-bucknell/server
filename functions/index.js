@@ -94,3 +94,47 @@ exports.updateElasticSearch = functions.database.ref('/pois/{place_id}/').onWrit
   })
   return data
 })
+
+const Storage = require('@google-cloud/storage')
+const projectId = 'senior-design-explr'
+var stream = require('stream')
+const storage = new Storage({
+  projectId: projectId,
+  keyFilename: 'keyfile.json'
+})
+const baseUrl = 'profilePic/'
+
+exports.profileImageUpload = functions.https.onRequest((req, res) => {
+  var uid = req.body.uid.toString()
+  var base64 = req.body.base64.toString()
+
+  var bufferStream = new stream.PassThrough()
+  bufferStream.end(new Buffer(base64, 'base64'))
+
+  //Define bucket.
+  var myBucket = storage.bucket('senior-design-explr.appspot.com')
+  //Define file & file name.
+  var file = myBucket.file('/profilePic/' + uid + '.jpg')
+  //Pipe the 'bufferStream' into a 'file.createWriteStream' method.
+  bufferStream.pipe(file.createWriteStream({
+    metadata: {
+      contentType: 'image/jpeg',
+      metadata: {
+        custom: 'metadata'
+      }
+    },
+    public: true,
+    validation: "md5"
+  }))
+  .on('error', function(err) {
+    console.log('error', err)
+    return false
+  })
+  .on('finish', function() {
+    // The file upload is complete.
+    console.log('uploaded')
+    return admin.database().ref('/users/main/' + uid).update({
+      imageUrl: baseUrl + uid + '.jpg'
+    })
+  })
+})
