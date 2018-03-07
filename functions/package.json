@@ -13,7 +13,8 @@
     "elasticsearch": "^14.1.0",
     "firebase-admin": "~5.8.1",
     "firebase-functions": "^0.8.1",
-    "stream": "^0.0.2"
+    "stream": "^0.0.2",
+    "expo-server-sdk": "^2.3.3"
   },
   "private": true
 }
