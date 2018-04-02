@@ -79,17 +79,17 @@ exports.updateElasticSearch = functions.database.ref('/pois/{place_id}/').onWrit
 
   https.get(`${BONSAI_URL}/update_places?data=${JSON.stringify(data)}`, (resp) => {
     let data = ''
-   
+
     // A chunk of data has been recieved.
     resp.on('data', (chunk) => {
       data += chunk
     })
-   
+
     // The whole response has been received. Print out the result.
     resp.on('end', () => {
       console.log(JSON.parse(data).explanation)
     })
-   
+
   }).on("error", (err) => {
     console.log("Error: " + err.message)
   })
@@ -179,65 +179,150 @@ exports.addPushToken = functions.https.onRequest((req, res) => {
     res.status(200).end();
   }
 });
-// expo notification sender
+// expo notification sender for sending a follow notification
 //NOTE: uses 3rd party calls, will cost $$.  could get expensive
 exports.sendFollowNotification = functions.https.onRequest((req, res) => {
-  var requester = req.body.requester.toString();
-  var requestee = req.body.requestee.toString();
+  var requester = req.body.requester.toString(); //sent the request
+  var requestee = req.body.requestee.toString(); //receiving the request
   let expo = new Expo();
   let messages = [];
+  console.log('yeah buddie starting');
 
-  admin.database().ref('/users/main/' + requestee).once('value').then(function(snapshot) {
-          var key = snapshot.key;
-          var exists = false;
-          console.log('device keys');
-          console.log(snapshot.child('instance_ids').val());
-          var tokens = snapshot.child('instance_ids').val();
-          console.log('logging contents of instance_id');
-          //SEND TO EACH
-          for(var token_key in tokens){
-            console.log('existing token: ' + tokens[token_key]);
-            console.log('gearing up to send message');
-            if(!Expo.isExpoPushToken(tokens[token_key])) {
-              console.error('hit an unvalid push expo push token.  sad face');
-              continue;
+  admin.database().ref('/users/main/'+ requester).once('value').then(function(snapshot){
+    console.log('inside first admin');
+    console.log('grabbing the requestor handle');
+    var sender = snapshot.child('handle').val();
+    console.log(sender);
+    admin.database().ref('/users/main/' + requestee).once('value').then(function(snapshot) {
+            console.log('inside second admin');
+            var key = snapshot.key;
+            var exists = false;
+            console.log('device keys');
+            console.log(snapshot.child('instance_ids').val());
+            var tokens = snapshot.child('instance_ids').val();
+            console.log('logging contents of instance_id');
+            //SEND TO EACH
+            for(var token_key in tokens){
+              console.log('existing token: ' + tokens[token_key]);
+              console.log('gearing up to send message');
+              if(!Expo.isExpoPushToken(tokens[token_key])) {
+                console.error('hit an unvalid push expo push token.  sad face');
+                continue;
+              }
+              messages.push({
+                to: tokens[token_key],
+                sound: 'default',
+                body: sender + ' has requested to follow you',
+                data: {
+                  requester: requester,
+                  requestee: requestee
+                },
+              })
+            console.log('messages being sent');
+            //go through process to add token
+
+          let chunks = expo.chunkPushNotifications(messages);
+
+          //(async function () => {
+            // Send the chunks to the Expo push notification service. There are
+            // different strategies you could use. A simple one is to send one chunk at a
+            // time, which nicely spreads the load out over time:
+            for (let chunk of chunks) {
+              try {
+                expo.sendPushNotificationsAsync(chunk);
+                //let receipts = expo.sendPushNotificationsAsync(chunk); //pretty sure this is gonna be a snapshot dealio
+                //console.log(receipts);
+              } catch (error) {
+                console.error(error);
+              }
             }
-            messages.push({
-              to: tokens[token_key],
-              sound: 'default',
-              body: snapshot.child('handle').val() + ' has requested to follow you',
-              data: {
-                requester: requester,
-                requestee: requestee
-              },
-            })
-          console.log('messages being sent');
-          //go through process to add token
+          //})();
+        }
+      });
+  })
 
-        let chunks = expo.chunkPushNotifications(messages);
 
-        //(async function () => {
-          // Send the chunks to the Expo push notification service. There are
-          // different strategies you could use. A simple one is to send one chunk at a
-          // time, which nicely spreads the load out over time:
-          for (let chunk of chunks) {
-            try {
-              expo.sendPushNotificationsAsync(chunk);
-              //let receipts = expo.sendPushNotificationsAsync(chunk); //pretty sure this is gonna be a snapshot dealio
-              //console.log(receipts);
-            } catch (error) {
-              console.error(error);
-            }
-          }
-        //})();
-      }
-    });
 
   if (req === undefined) {
     // This is an error case, as "message" is required
     res.status(400).send('No message defined!');
   } else {
     // Everything is ok
+    console.log('it was ok, hit the last else');
+    console.log(req.body.message);
+    res.status(200).end();
+  }
+});
+
+// send a notification that a follow request has been approved
+exports.sendFollowApprovalNotification = functions.https.onRequest((req, res) => {
+  var newFollower = req.body.newFollower.toString(); //sent the request
+  var sendingApproval = req.body.sendingApproval.toString(); //receiving the request
+  let expo = new Expo();
+  let messages = [];
+  console.log('yeah buddie starting sending follow approval notification');
+
+  admin.database().ref('/users/main/'+ sendingApproval).once('value').then(function(snapshot){
+    console.log('inside first admin');
+    console.log('grabbing the sending approval handle');
+    var sender = snapshot.child('handle').val();
+    console.log(sender);
+    admin.database().ref('/users/main/' + newFollower).once('value').then(function(snapshot) {
+            console.log('inside second admin');
+            var key = snapshot.key;
+            var exists = false;
+            console.log('device keys');
+            console.log(snapshot.child('instance_ids').val());
+            var tokens = snapshot.child('instance_ids').val();
+            console.log('logging contents of instance_id');
+            //SEND TO EACH
+            for(var token_key in tokens){
+              console.log('existing token: ' + tokens[token_key]);
+              console.log('gearing up to send message');
+              if(!Expo.isExpoPushToken(tokens[token_key])) {
+                console.error('hit an unvalid push expo push token.  sad face');
+                continue;
+              }
+              messages.push({
+                to: tokens[token_key],
+                sound: 'default',
+                body: sender + ' has accepted your follow request',
+                data: {
+                  newFollower: newFollower,
+                  sendingApproval: sendingApproval
+                },
+              })
+            console.log('messages being sent');
+            //go through process to add token
+
+          let chunks = expo.chunkPushNotifications(messages);
+
+          //(async function () => {
+            // Send the chunks to the Expo push notification service. There are
+            // different strategies you could use. A simple one is to send one chunk at a
+            // time, which nicely spreads the load out over time:
+            for (let chunk of chunks) {
+              try {
+                expo.sendPushNotificationsAsync(chunk);
+                //let receipts = expo.sendPushNotificationsAsync(chunk); //pretty sure this is gonna be a snapshot dealio
+                //console.log(receipts);
+              } catch (error) {
+                console.error(error);
+              }
+            }
+          //})();
+        }
+      });
+  })
+
+
+
+  if (req === undefined) {
+    // This is an error case, as "message" is required
+    res.status(400).send('No message defined!');
+  } else {
+    // Everything is ok
+    console.log('it was ok, hit the last else');
     console.log(req.body.message);
     res.status(200).end();
   }
