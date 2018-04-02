@@ -97,7 +97,7 @@ exports.sendFollowNotification = functions.https.onRequest((req, res) => {
   let expo = new Expo();
   let messages = [];
 
-  admin.database().ref('/users/main/' + requester).once('value').then(function(snapshot) {
+  admin.database().ref('/users/main/' + requestee).once('value').then(function(snapshot) {
           var key = snapshot.key;
           var exists = false;
           console.log('device keys');
