@@ -1,3 +1,4 @@
+const https = require('https');
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 const Expo = require('expo-server-sdk');
@@ -50,6 +51,95 @@ exports.tripRequest = functions.https.onRequest((req, res) => {
               });
       });
     });
+
+const BONSAI_URL = 'https://explrelasticsearch.herokuapp.com'
+
+exports.updateElasticSearch = functions.database.ref('/pois/{place_id}/').onWrite((event) => {
+  // Grab the current value of what was written to the Realtime Database.
+  const snapshot = event.data
+  var data = []
+  data.push({
+    update: {
+      _index: 'explr',
+      _type: 'places',
+      _id: snapshot.val().id
+    }
+  })
+  data.push({
+    doc: {
+      name: snapshot.val().name,
+      id: snapshot.val().id
+    },
+    upsert: {
+      name: snapshot.val().name,
+      id: snapshot.val().id
+    }
+  })
+  console.log('data', data)
+
+  https.get(`${BONSAI_URL}/update_places?data=${JSON.stringify(data)}`, (resp) => {
+    let data = ''
+   
+    // A chunk of data has been recieved.
+    resp.on('data', (chunk) => {
+      data += chunk
+    })
+   
+    // The whole response has been received. Print out the result.
+    resp.on('end', () => {
+      console.log(JSON.parse(data).explanation)
+    })
+   
+  }).on("error", (err) => {
+    console.log("Error: " + err.message)
+  })
+  return data
+})
+
+const Storage = require('@google-cloud/storage')
+const projectId = 'senior-design-explr'
+var stream = require('stream')
+const storage = new Storage({
+  projectId: projectId,
+  keyFilename: 'keyfile.json'
+})
+const baseUrl = 'profilePic/'
+
+exports.profileImageUpload = functions.https.onRequest((req, res) => {
+  var uid = req.body.uid.toString()
+  var base64 = req.body.base64.toString()
+
+  var bufferStream = new stream.PassThrough()
+  bufferStream.end(new Buffer(base64, 'base64'))
+
+  //Define bucket.
+  var myBucket = storage.bucket('senior-design-explr.appspot.com')
+  //Define file & file name.
+  var file = myBucket.file('/profilePic/' + uid + '.jpg')
+  //Pipe the 'bufferStream' into a 'file.createWriteStream' method.
+  bufferStream.pipe(file.createWriteStream({
+    metadata: {
+      contentType: 'image/jpeg',
+      metadata: {
+        custom: 'metadata'
+      }
+    },
+    public: true,
+    validation: "md5"
+  }))
+  .on('error', function(err) {
+    console.log('error', err)
+    return false
+  })
+  .on('finish', function() {
+    // The file upload is complete.
+    console.log('uploaded')
+    return admin.database().ref('/users/main/' + uid).update({
+      imageUrl: baseUrl + uid + '.jpg'
+    })
+  })
+})
+
 //to add a push token to a user account via user
 exports.addPushToken = functions.https.onRequest((req, res) => {
   var user_id  = req.body.uid.toString(); //user id of user
