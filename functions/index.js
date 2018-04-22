@@ -77,7 +77,7 @@ exports.updateElasticSearch = functions.database.ref('/pois/{place_id}/').onWrit
   })
   console.log('data', data)
 
-  https.get(`${BONSAI_URL}/update_places?data=${JSON.stringify(data)}`, (resp) => {
+  https.get(`${BONSAI_URL}/update_places?data=${encodeURI(JSON.stringify(data))}`, (resp) => {
     let data = ''
    
     // A chunk of data has been recieved.
